@@ -1,0 +1,102 @@
+---
+title: "Me Representa"
+date: 2018-05-25
+author: "Mainara Cavalcanti de Farias"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: yes
+  html_notebook:
+    toc: yes
+    toc_float: yes
+---
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(here)
+theme_set(theme_bw())
+library(plotly)
+```
+
+```{r echo=FALSE}
+respostas = read_csv(here::here("data/respostas-merepresenta-2016.csv"), 
+                     col_types = cols(.default = col_character(), 
+                                      nota_partido = col_integer(), 
+                                      votos_recebidos = col_integer()))
+
+# A versão long (em vez de wide) dos dados facilita muito pro ggplot:
+respostas_long = 
+    respostas %>% 
+    gather(key = "tema", 
+           value = "resposta", 
+           10:23)
+```
+
+<p>Nessa análise utilizaremos dados coletados pelo [#MeRepresenta](https://www.merepresenta.org.br/). Esses dados contém informações de 890 candidatas e candidatos cadastrados em 244 cidades, 24 estados e de todos os partidos se manifestando em relação às pautas de igualdades de gênero, racial e orientação sexual.<p/>
+<p>A partir desses dados, poderemos responder os questionamentos feitos nessa análise.<p/>
+
+###Existe algum candidato que se posiciona a favor do respeito à identidade de gênero de pessoas trans e contra a adoção por famílias LGBTs?
+
+<p>Para facilitar nossa visualização, criei as seguintes categorias: SS, SN, NS e NN. Onde o primeiro símbolo (S ou N) representa a posição com relação ao respeito à identidade de gênero de pessoas trans, que pode ser positiva (S) ou negativa (N), e o segundo com relação a adoção por famílias LGBTs, que segue a mesma lógica.<p/>
+
+```{r}
+respostas_LGBT <- respostas %>% 
+    mutate(comparacao = case_when((`Respeito à identidade de gênero de pessoas trans` == "S" & `Adoção por famílias LGBTs` == "S") ~ "SS",
+                                  (`Respeito à identidade de gênero de pessoas trans` == "S" & `Adoção por famílias LGBTs` == "N") ~ "SN",
+                                  (`Respeito à identidade de gênero de pessoas trans` == "N" & `Adoção por famílias LGBTs` == "S") ~ "NS",
+                                  (`Respeito à identidade de gênero de pessoas trans` == "N" & `Adoção por famílias LGBTs` == "N" ~ "NN")))
+p <- ggplot(data = respostas_LGBT, aes(x = comparacao, fill=cor_tse))+
+    geom_bar(stat="count") +
+    scale_x_discrete("Categoria") +
+    scale_fill_discrete(guide = guide_legend(title = "Cor"))
+ggplotly(p)
+```
+
+*Observação: Ao clicar duas vezes em cima da cor, ao lado direito, o gráfico é alterado para conter apenas as informações referentes ao determinado gênero. Além disso, é possível dar zoom em qualquer área do gráfico*
+
+<p>Observando o gráfico, percebemos que a grande maioria (706 candidatos) se posicionam a favor dos dois temas. Porém, para responder a pergunta iremos focar nas categorias SN e NS.<p/>
+
+<p>Fica claro que existem candidatos que são contra um tema e a favor do outro, o que me surpreendeu, mesmo que os números não sejam tão altos. Sendo que a maioria (76 candidatos), nesses casos, se posiciona contra o respeito à identidade de gênero de pessoas trans, o que não nos espanta, mas é bastante lamentável. Já 14 candidatos se posicionam contra a adoção por famílias LGBTs e a favor do respeito à identidade de gênero de pessoas trans.<p/>
+
+####Os partidos dos candidatos que votam contra esses temas são geralmente partidos que possuem ideologias de direita?
+
+```{r}
+partidos <- respostas_LGBT %>% 
+    filter(comparacao == "NN" | comparacao == "NS" | comparacao == "SN")
+a <- ggplot(data = partidos)+
+    geom_count(stat="count", aes(x = sigla_partido, color = comparacao))+
+    coord_flip() +
+    scale_x_discrete("Sigla do partido") +
+    scale_y_discrete("Quantidade de votos") +
+    scale_color_discrete(name = "Categoria")
+ggplotly(a)
+rm(partidos)
+rm(a)
+```
+Ao contrário do que eu imaginei, houveram candidatos de partidos com ideologias diferentes. O partido REDE  foi o que mais se destacou, sendo 1 voto SN, 1 voto NN e 7 votos NS. 
+
+###Quem é contra o estado laico geralmente é contra a descriminalização do aborto?
+```{r}
+contra_estado_laico = respostas %>% 
+    filter(`Estado Laico` == "N")
+e <- ggplot(data = contra_estado_laico, aes(x = `Descriminalização do aborto`, fill=genero))+
+        geom_bar(stat="count")
+ggplotly(e)
+    
+```
+
+Aqui, recolhemos os dados apenas dos candidatos que se posicionaram contra o estado laico. Fica claro que, quem é contra o estado laico geralmente é contra de descriminalização do aborto também. Ainda nesses casos, a proporção de mulheres que é contra a descriminalização do aborto é menor (31%) do que as são a favor (44%). 
+
+####Agora vamos responder a seguinte pergunta: os candidatos que são contra o estado laico e contra a descriminalização do aborto, em geral, pertencem a partidos cristãos?
+```{r}
+data_filtered = contra_estado_laico %>% 
+    filter(`Descriminalização do aborto` == "N") 
+
+ggplot(data = data_filtered, aes(x = sigla_partido, fill=genero))+
+        geom_bar(stat="count") +
+    coord_flip()
+
+```
+
+A hipótese da pergunta não foi confirmada com os resultados do gráfico, pois há candidatos de diversos partidos.
